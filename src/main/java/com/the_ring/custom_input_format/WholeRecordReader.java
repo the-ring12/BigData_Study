@@ -77,7 +77,7 @@ public class WholeRecordReader extends RecordReader<Text, BytesWritable> {
 
     @Override
     public BytesWritable getCurrentValue() throws IOException, InterruptedException {
-        return value;
+        return value    ;
     }
 
     @Override
