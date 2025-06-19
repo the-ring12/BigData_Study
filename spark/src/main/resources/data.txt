@@ -1,0 +1,5 @@
+spark hive hadoop
+kafka hbase hdfs
+java c c++
+hadoop hbase hive spark
+flink
