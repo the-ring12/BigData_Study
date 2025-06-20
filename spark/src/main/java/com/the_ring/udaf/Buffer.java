@@ -1,4 +1,4 @@
-package com.the_ring.bean;
+package com.the_ring.udaf;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -7,9 +7,9 @@ import lombok.NoArgsConstructor;
 import java.io.Serializable;
 
 @Data
-@NoArgsConstructor
 @AllArgsConstructor
-public class User implements Serializable {
-    public long age;
-    public String name;
+@NoArgsConstructor
+public class Buffer implements Serializable {
+    private Long sum;
+    private Long count;
 }

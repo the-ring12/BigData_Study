@@ -1,4 +1,4 @@
-package com.the_ring;
+package com.the_ring.saprk_core;
 
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
