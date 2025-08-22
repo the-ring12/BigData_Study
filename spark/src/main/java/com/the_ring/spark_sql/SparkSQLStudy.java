@@ -11,6 +11,9 @@ import org.apache.spark.sql.types.DataTypes;
 import scala.Function2;
 import scala.Tuple2;
 
+/**
+ * SparkSQL 基础
+ */
 import static org.apache.spark.sql.functions.udaf;
 import static org.apache.spark.sql.functions.udf;
 

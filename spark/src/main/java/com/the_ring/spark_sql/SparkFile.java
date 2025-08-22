@@ -5,6 +5,9 @@ import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.function.MapFunction;
 import org.apache.spark.sql.*;
 
+/**
+ * SparkSQL 对文件的操作
+ */
 public class SparkFile {
 
     public static void main(String[] args) {
