@@ -17,7 +17,10 @@ import org.apache.flink.streaming.api.windowing.windows.TimeWindow;
 import org.apache.flink.util.Collector;
 
 import java.time.Duration;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 /**
  * @Description 实现提示每个窗口的 TopN
@@ -75,7 +78,7 @@ public class TopNDemo {
                            },
                         new ProcessWindowFunction<Integer, Tuple3<Integer, Integer, Long>, Integer, TimeWindow>() {
                             @Override
-                            public void process(Integer key, ProcessWindowFunction<Integer, Tuple3<Integer, Integer, Long>, Integer, TimeWindow>.Context context, Iterable<Integer> elements, Collector<Tuple3<Integer, Integer, Long>> out) throws Exception {
+                            public void process(Integer key, ProcessWindowFunction<Integer, Tuple3<Integer, Integer, Long>, Integer, TimeWindow>.Context context, Iterable<Integer> elements, Collector<Tuple3<Integer, Integer, Long>> out) {
                                 Integer val = elements.iterator().next();
                                 out.collect(new Tuple3<>(key, val, context.window().getEnd()));
 
@@ -87,12 +90,12 @@ public class TopNDemo {
                     Map<Long, List<Tuple3<Integer, Integer, Long>>> map;
 
                     @Override
-                    public void open(OpenContext openContext) throws Exception {
+                    public void open(OpenContext openContext) {
                         map = new HashMap<>();
                     }
 
                     @Override
-                    public void processElement(Tuple3<Integer, Integer, Long> value, KeyedProcessFunction<Long, Tuple3<Integer, Integer, Long>, String>.Context ctx, Collector<String> out) throws Exception {
+                    public void processElement(Tuple3<Integer, Integer, Long> value, KeyedProcessFunction<Long, Tuple3<Integer, Integer, Long>, String>.Context ctx, Collector<String> out) {
                         Long key = ctx.getCurrentKey();
                         List<Tuple3<Integer, Integer, Long>> list = map.getOrDefault(key, new ArrayList<>());
                         list.add(value);
@@ -102,7 +105,7 @@ public class TopNDemo {
                     }
 
                     @Override
-                    public void onTimer(long timestamp, KeyedProcessFunction<Long, Tuple3<Integer, Integer, Long>, String>.OnTimerContext ctx, Collector<String> out) throws Exception {
+                    public void onTimer(long timestamp, KeyedProcessFunction<Long, Tuple3<Integer, Integer, Long>, String>.OnTimerContext ctx, Collector<String> out) {
                         Long key = ctx.getCurrentKey();
                         List<Tuple3<Integer, Integer, Long>> list = map.get(key);
                         list.sort((a, b) -> b.f1 - a.f1);

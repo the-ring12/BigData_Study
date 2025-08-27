@@ -1,20 +1,17 @@
 package com.the_ring.process_function;
 
-import org.apache.flink.api.common.eventtime.*;
+import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.api.common.functions.MapFunction;
 import org.apache.flink.api.common.typeinfo.Types;
-import org.apache.flink.api.java.functions.KeySelector;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.streaming.api.TimerService;
 import org.apache.flink.streaming.api.datastream.DataStreamSource;
-import org.apache.flink.streaming.api.datastream.KeyedStream;
 import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.KeyedProcessFunction;
 import org.apache.flink.util.Collector;
 
 import java.time.Duration;
-import java.util.Arrays;
 
 /**
  * @Description 定时器 TimerService Study
@@ -50,7 +47,7 @@ public class TimerServiceDemo {
                 .keyBy(element -> element.f0)
                 .process(new KeyedProcessFunction<String, Tuple2<String, Integer>, String>() {
                     @Override
-                    public void processElement(Tuple2<String, Integer> value, KeyedProcessFunction<String, Tuple2<String, Integer>, String>.Context ctx, Collector<String> out) throws Exception {
+                    public void processElement(Tuple2<String, Integer> value, KeyedProcessFunction<String, Tuple2<String, Integer>, String>.Context ctx, Collector<String> out) {
 //                        String currentKey = ctx.getCurrentKey();    // key
 //                        Long timestamp = ctx.timestamp();           // 事件时间
 //                        System.out.println(currentKey + " -> " + timestamp);
@@ -62,7 +59,7 @@ public class TimerServiceDemo {
                     }
 
                     @Override
-                    public void onTimer(long timestamp, KeyedProcessFunction<String, Tuple2<String, Integer>, String>.OnTimerContext ctx, Collector<String> out) throws Exception {
+                    public void onTimer(long timestamp, KeyedProcessFunction<String, Tuple2<String, Integer>, String>.OnTimerContext ctx, Collector<String> out) {
                         System.out.println(ctx.getCurrentKey() + " -> " + timestamp);
                     }
                 });
