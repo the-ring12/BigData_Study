@@ -12,6 +12,7 @@
         <module>hadoop</module>
         <module>spark</module>
         <module>Flink</module>
+        <module>FlinkPractice</module>
     </modules>
 
 
