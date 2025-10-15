@@ -186,14 +186,42 @@ public class DimAPP {
                 // processBroadcastElement: 处理广播流配置信息   将配置数据据放到广播状态中 k: 维度表名   v: 一个配置对象
                 .process(new BroadcastProcessFunction<JSONObject, TableProcessDim, Tuple2<JSONObject, TableProcessDim>>() {
 
+                    private Map<String, TableProcessDim> configMap = new HashMap<>();
+
+                    @Override
+                    public void open(OpenContext openContext) throws Exception {
+                        // 将配置表中的配置信息预加载程序中
+                        // 读取 MySQL 表：加载驱动->建立连接->获取数据操作对象->执行SQL->处理结果集->释放资源
+                        Class.forName(Constant.MYSQL_DRIVER);
+                        java.sql.Connection con = DriverManager.getConnection(Constant.MYSQL_URL, Constant.MYSQL_USER_NAME, Constant.MYSQL_PASSWORD);
+                        String sql = "SELECT * FROM gmall2025_config.table_process_dim";
+                        PreparedStatement statement = con.prepareStatement(sql);
+                        ResultSet resultSet = statement.executeQuery();
+                        ResultSetMetaData metaData = resultSet.getMetaData();
+                        while (resultSet.next()) {
+                            JSONObject jsonObject = new JSONObject();
+                            for (int i = 1; i < metaData.getColumnCount(); i++) {
+                                String columnName = metaData.getCatalogName(i);
+                                Object columnValue = resultSet.getObject(i);
+                                jsonObject.put(columnName, columnValue);
+                            }
+                            TableProcessDim tableProcessDim = jsonObject.toJavaObject(TableProcessDim.class, JSONReader.Feature.SupportSmartMatch);
+                            configMap.put(tableProcessDim.getSourceTable(), tableProcessDim);
+                        }
+
+                        resultSet.close();
+                        statement.close();
+                        con.close();
+                    }
 
 
                     @Override
                     public void processElement(JSONObject jsonObject, BroadcastProcessFunction<JSONObject, TableProcessDim, Tuple2<JSONObject, TableProcessDim>>.ReadOnlyContext readOnlyContext, Collector<Tuple2<JSONObject, TableProcessDim>> collector) throws Exception {
                         String table = jsonObject.getString("table");
                         ReadOnlyBroadcastState<String, TableProcessDim> broadcastState = readOnlyContext.getBroadcastState(mapStateDescriptor);
-                        TableProcessDim tableProcessDim = broadcastState.get(table);
-                        if (tableProcessDim != null) {
+                        TableProcessDim tableProcessDim = null;
+                        if ((tableProcessDim = broadcastState.get(table)) != null
+                        || (tableProcessDim = configMap.getOrDefault(table, null)) != null) {
                             // 处理的是维度数据，传递数据到下流
                             JSONObject data = jsonObject.getJSONObject("data");
 
@@ -220,8 +248,10 @@ public class DimAPP {
                         String sourceTable = value.getSourceTable();
                         if ("d".equals(op)) {
                             broadcastState.remove(sourceTable);
+                            configMap.remove(sourceTable);
                         } else {
                             broadcastState.put(sourceTable, value);
+                            configMap.put(sourceTable, value);
                         }
                     }
                 })
