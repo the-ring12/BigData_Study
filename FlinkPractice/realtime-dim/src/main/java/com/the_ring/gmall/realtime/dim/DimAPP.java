@@ -6,9 +6,16 @@ import com.alibaba.fastjson2.JSONObject;
 import com.alibaba.fastjson2.JSONReader;
 import com.the_ring.gmall.realtime.common.bean.TableProcessDim;
 import com.the_ring.gmall.realtime.common.constant.Constant;
+import com.the_ring.gmall.realtime.common.util.HBaseUtil;
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.api.common.functions.MapFunction;
+import org.apache.flink.api.common.functions.OpenContext;
+import org.apache.flink.api.common.functions.RichMapFunction;
 import org.apache.flink.api.common.serialization.SimpleStringSchema;
+import org.apache.flink.api.common.state.BroadcastState;
+import org.apache.flink.api.common.state.MapStateDescriptor;
+import org.apache.flink.api.common.state.ReadOnlyBroadcastState;
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.cdc.connectors.mysql.source.MySqlSource;
 import org.apache.flink.cdc.connectors.mysql.table.StartupOptions;
 import org.apache.flink.cdc.debezium.JsonDebeziumDeserializationSchema;
@@ -17,14 +24,21 @@ import org.apache.flink.configuration.ExternalizedCheckpointRetention;
 import org.apache.flink.connector.kafka.source.KafkaSource;
 import org.apache.flink.connector.kafka.source.enumerator.initializer.OffsetsInitializer;
 import org.apache.flink.core.execution.CheckpointingMode;
+import org.apache.flink.streaming.api.datastream.BroadcastStream;
 import org.apache.flink.streaming.api.datastream.DataStreamSource;
 import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.streaming.api.environment.CheckpointConfig;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.ProcessFunction;
+import org.apache.flink.streaming.api.functions.co.BroadcastProcessFunction;
 import org.apache.flink.util.Collector;
+import org.apache.hadoop.hbase.client.Connection;
 
-import java.util.Properties;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.util.*;
 
 /**
  * @Description DIM 层处理
@@ -88,6 +102,7 @@ public class DimAPP {
                     }
                 }
         );
+//        kafkaObjDS.print();
 
         // 5. 使用 Flink CDC 读取配置表中的配置信息
         // 5.1 创建 MysqlSource 对象
@@ -103,7 +118,7 @@ public class DimAPP {
                 .username(Constant.MYSQL_USER_NAME)
                 .password(Constant.MYSQL_PASSWORD)
                 .deserializer(new JsonDebeziumDeserializationSchema())
-                .startupOptions(StartupOptions.initial())
+                .startupOptions(StartupOptions.earliest())
                 .jdbcProperties(props)
                 .build();
         // 5.2 读取数据，封装为流
@@ -117,7 +132,7 @@ public class DimAPP {
                     public TableProcessDim map(String s) throws Exception {
                         JSONObject jsonObject = JSON.parseObject(s);
                         String op = jsonObject.getString("op");
-                        TableProcessDim tableProcessDim = null;
+                        TableProcessDim tableProcessDim;
                         if ("d".equals(op)) {
                             tableProcessDim = jsonObject.getObject("before", TableProcessDim.class, JSONReader.Feature.SupportSmartMatch);
                         } else {
@@ -126,17 +141,92 @@ public class DimAPP {
                         tableProcessDim.setOp(op);
                         return tableProcessDim;
                     }
+                }).setParallelism(1)
+                //        tableProcessDimDS.print();
+                // 7. 根据配置表中的配置信息到 HBase 中执行建表或删表操作
+                .map(new RichMapFunction<TableProcessDim, TableProcessDim>() {
+
+                    private Connection connection;
+
+
+                    @Override
+                    public void open(OpenContext openContext) throws Exception {
+                        connection = HBaseUtil.getHBaseConnection();
+                    }
+
+                    @Override
+                    public TableProcessDim map(TableProcessDim tableProcessDim) throws Exception {
+                        String op = tableProcessDim.getOp();
+                        if ("d".equals(op)) {
+                            HBaseUtil.dropHbaseTable(connection, Constant.HBASE_NAMESPACE, tableProcessDim.getSinkTable());
+                        } else if ("r".equals(op) || "c".equals(op)) {
+                            HBaseUtil.createHBaseTable(connection, Constant.HBASE_NAMESPACE, tableProcessDim.getSinkTable(), tableProcessDim.getSinkFamily());
+                        } else {
+                            HBaseUtil.dropHbaseTable(connection, Constant.HBASE_NAMESPACE, tableProcessDim.getSinkTable());
+                            HBaseUtil.createHBaseTable(connection, Constant.HBASE_NAMESPACE, tableProcessDim.getSinkTable(), tableProcessDim.getSinkFamily());
+                        }
+                        return tableProcessDim;
+                    }
+
+                    @Override
+                    public void close() throws Exception {
+                        HBaseUtil.closeHBaseConnection(connection);
+                    }
                 }).setParallelism(1);
-        tableProcessDimDS.print();
-        // 7. 根据配置表中的配置信息到 HBase 中执行建表或删表操作
+
 
         // 8. 将配置流中的配置信息进行广播——broadcast
+        MapStateDescriptor<String, TableProcessDim> mapStateDescriptor = new MapStateDescriptor<>("MapStateDescriptor", String.class, TableProcessDim.class);
+        BroadcastStream<TableProcessDim> configBroadcastDS = tableProcessDimDS.broadcast(mapStateDescriptor);
 
         // 9. 将主流业务数据和广播流配置信息进行关联——connect
+        kafkaObjDS.connect(configBroadcastDS)
+                // 10. 处理关联后的数据（判断是否为维度）
+                // processElement: 处理主流业务数据             根据维度表名到广播状态中读取配置信息，判断是否为维度
+                // processBroadcastElement: 处理广播流配置信息   将配置数据据放到广播状态中 k: 维度表名   v: 一个配置对象
+                .process(new BroadcastProcessFunction<JSONObject, TableProcessDim, Tuple2<JSONObject, TableProcessDim>>() {
 
-        // 10. 处理关联后的数据（判断是否为维度）
-        // processElement: 处理主流业务数据             根据维度表名到广播状态中读取配置信息，判断是否为维度
-        // processBroadcastElement: 处理广播流配置信息   将配置数据据放到广播状态中 k: 维度表名   v: 一个配置对象
+
+
+                    @Override
+                    public void processElement(JSONObject jsonObject, BroadcastProcessFunction<JSONObject, TableProcessDim, Tuple2<JSONObject, TableProcessDim>>.ReadOnlyContext readOnlyContext, Collector<Tuple2<JSONObject, TableProcessDim>> collector) throws Exception {
+                        String table = jsonObject.getString("table");
+                        ReadOnlyBroadcastState<String, TableProcessDim> broadcastState = readOnlyContext.getBroadcastState(mapStateDescriptor);
+                        TableProcessDim tableProcessDim = broadcastState.get(table);
+                        if (tableProcessDim != null) {
+                            // 处理的是维度数据，传递数据到下流
+                            JSONObject data = jsonObject.getJSONObject("data");
+
+                            // 过滤无用数据字段
+                            List<String> columnList = Arrays.asList(tableProcessDim.getSinkColumns().split(","));
+                            Set<Map.Entry<String, Object>> entrySet = data.entrySet();
+//                            Iterator<Map.Entry<String, Object>> iterator = entrySet.iterator();
+//                            while (iterator.hasNext()) {
+//                                Map.Entry<String, Object> entry = iterator.next();
+//                                if (!columnList.contains(entry.getKey())) {
+//                                    iterator.remove();
+//                                }
+//                            }
+                            entrySet.removeIf(entry -> !columnList.contains(entry.getKey()));
+
+                            collector.collect(Tuple2.of(data, tableProcessDim));
+                        }
+                    }
+
+                    @Override
+                    public void processBroadcastElement(TableProcessDim value, BroadcastProcessFunction<JSONObject, TableProcessDim, Tuple2<JSONObject, TableProcessDim>>.Context context, Collector<Tuple2<JSONObject, TableProcessDim>> collector) throws Exception {
+                        String op = value.getOp();
+                        BroadcastState<String, TableProcessDim> broadcastState = context.getBroadcastState(mapStateDescriptor); // 获取广播状态
+                        String sourceTable = value.getSourceTable();
+                        if ("d".equals(op)) {
+                            broadcastState.remove(sourceTable);
+                        } else {
+                            broadcastState.put(sourceTable, value);
+                        }
+                    }
+                })
+                .print()
+        ;
 
         // 11. 将维度数据同步到 HBase 表中
 
