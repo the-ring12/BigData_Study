@@ -1,12 +1,16 @@
 package com.the_ring.gmall.realtime.common.util;
 
 
+import com.alibaba.fastjson2.JSONObject;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.*;
+import org.apache.hadoop.hbase.util.Bytes;
 
 import java.io.IOException;
+import java.util.Set;
 
 /**
  * @Description HBase 工具类
@@ -34,7 +38,7 @@ public class HBaseUtil {
         Admin admin = connection.getAdmin();
         TableName table = TableName.valueOf(nameSpace, tableName);
         if (admin.tableExists(table)) {
-            log.warn("表空间下 " + nameSpace + " 的表 " + tableName + " 已存在，创建失败！");
+            System.err.println("表空间下 " + nameSpace + " 的表 " + tableName + " 已存在，创建失败！");
             return;
         }
         ColumnFamilyDescriptor familyDescriptor = ColumnFamilyDescriptorBuilder.of(family);
@@ -42,19 +46,68 @@ public class HBaseUtil {
                 .setColumnFamily(familyDescriptor)
                 .build();
         admin.createTable(descriptor);
-        log.info("表空间下 " + nameSpace + " 的表 " + tableName + "创建成功！");
+        System.out.println("表空间下 " + nameSpace + " 的表 " + tableName + " 创建成功！");
     }
 
     public static void dropHbaseTable(Connection connection, String nameSpace, String tableName) throws IOException {
         Admin admin = connection.getAdmin();
         TableName table = TableName.valueOf(nameSpace, tableName);
         if (!admin.tableExists(table)) {
-            log.warn("表空间下 " + nameSpace + " 的表 " + tableName + " 不存在，删除失败！");
+            System.err.println("表空间下 " + nameSpace + " 的表 " + tableName + " 不存在，删除失败！");
             return;
         }
-        admin.disableTable(table);
+        if (admin.isTableEnabled(table)) {
+            admin.disableTable(table);
+        }
         admin.deleteTable(table);
-        log.info("表空间下 " + nameSpace + " 的表 " + tableName + " 删除成功！");
+        System.out.println("表空间下 " + nameSpace + " 的表 " + tableName + " 删除成功！");
     }
 
+    /**
+     * HBase 中插入数据
+     * @param connection 连接对象
+     * @param nameSpace 表空间
+     * @param tableName 表
+     * @param rowKey 行键
+     * @param family 列族
+     * @param jsonObject 待插入数据
+     */
+    public static void putRow(Connection connection, String nameSpace, String tableName, String rowKey, String family, JSONObject jsonObject) {
+        TableName tableNameObj = TableName.valueOf(nameSpace, tableName);
+        try (Table table = connection.getTable(tableNameObj)) {
+            Put put = new Put(Bytes.toBytes(rowKey));
+            Set<String> columns = jsonObject.keySet();
+            byte[] familyBytes = Bytes.toBytes(family);
+            for (String column : columns) {
+                String value = jsonObject.getString(column);
+                if (StringUtils.isNotEmpty(value)) {
+                    put.addColumn(familyBytes, Bytes.toBytes(column), Bytes.toBytes(value));
+                }
+            }
+
+            table.put(put);
+            System.out.println("表空间下 " + nameSpace + " 的表 " + tableName + " 插入一条数据！");
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+
+    /**
+     * HBase 中删除一条数据
+     * @param connection 连接对象
+     * @param nameSpace 命名空间
+     * @param tableName 表
+     * @param rowKey 行键
+     */
+    public static void deleteRow(Connection connection, String nameSpace, String tableName, String rowKey) {
+        TableName tableNameObj = TableName.valueOf(nameSpace, tableName);
+        try (Table table = connection.getTable(tableNameObj)) {
+            Delete delete = new Delete(Bytes.toBytes(rowKey));
+            table.delete(delete);
+            log.info("表空间下 " + nameSpace + " 的表 " + tableName + " 删除一条数据！");
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
 }

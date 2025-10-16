@@ -31,6 +31,7 @@ import org.apache.flink.streaming.api.environment.CheckpointConfig;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.ProcessFunction;
 import org.apache.flink.streaming.api.functions.co.BroadcastProcessFunction;
+import org.apache.flink.streaming.api.functions.sink.RichSinkFunction;
 import org.apache.flink.util.Collector;
 import org.apache.hadoop.hbase.client.Connection;
 
@@ -180,7 +181,7 @@ public class DimAPP {
         BroadcastStream<TableProcessDim> configBroadcastDS = tableProcessDimDS.broadcast(mapStateDescriptor);
 
         // 9. 将主流业务数据和广播流配置信息进行关联——connect
-        kafkaObjDS.connect(configBroadcastDS)
+        SingleOutputStreamOperator<Tuple2<JSONObject, TableProcessDim>> dimDS = kafkaObjDS.connect(configBroadcastDS)
                 // 10. 处理关联后的数据（判断是否为维度）
                 // processElement: 处理主流业务数据             根据维度表名到广播状态中读取配置信息，判断是否为维度
                 // processBroadcastElement: 处理广播流配置信息   将配置数据据放到广播状态中 k: 维度表名   v: 一个配置对象
@@ -221,21 +222,23 @@ public class DimAPP {
                         ReadOnlyBroadcastState<String, TableProcessDim> broadcastState = readOnlyContext.getBroadcastState(mapStateDescriptor);
                         TableProcessDim tableProcessDim = null;
                         if ((tableProcessDim = broadcastState.get(table)) != null
-                        || (tableProcessDim = configMap.getOrDefault(table, null)) != null) {
+                                || (tableProcessDim = configMap.getOrDefault(table, null)) != null) {
                             // 处理的是维度数据，传递数据到下流
                             JSONObject data = jsonObject.getJSONObject("data");
 
                             // 过滤无用数据字段
                             List<String> columnList = Arrays.asList(tableProcessDim.getSinkColumns().split(","));
                             Set<Map.Entry<String, Object>> entrySet = data.entrySet();
-//                            Iterator<Map.Entry<String, Object>> iterator = entrySet.iterator();
-//                            while (iterator.hasNext()) {
-//                                Map.Entry<String, Object> entry = iterator.next();
-//                                if (!columnList.contains(entry.getKey())) {
-//                                    iterator.remove();
-//                                }
-//                            }
+                            //                            Iterator<Map.Entry<String, Object>> iterator = entrySet.iterator();
+                            //                            while (iterator.hasNext()) {
+                            //                                Map.Entry<String, Object> entry = iterator.next();
+                            //                                if (!columnList.contains(entry.getKey())) {
+                            //                                    iterator.remove();
+                            //                                }
+                            //                            }
                             entrySet.removeIf(entry -> !columnList.contains(entry.getKey()));
+
+                            data.put("type", jsonObject.get("type"));
 
                             collector.collect(Tuple2.of(data, tableProcessDim));
                         }
@@ -254,11 +257,40 @@ public class DimAPP {
                             configMap.put(sourceTable, value);
                         }
                     }
-                })
-                .print()
-        ;
+                });
+        dimDS.print();
 
         // 11. 将维度数据同步到 HBase 表中
+        dimDS.addSink(new RichSinkFunction<Tuple2<JSONObject, TableProcessDim>>() {
+
+            private Connection connection;
+
+
+            @Override
+            public void open(OpenContext openContext) throws Exception {
+                connection = HBaseUtil.getHBaseConnection();
+            }
+
+            @Override
+            public void invoke(Tuple2<JSONObject, TableProcessDim> value, Context context) throws Exception {
+                JSONObject jsonObject = value.f0;
+                TableProcessDim tableProcessDim = value.f1;
+                Object type = jsonObject.get("type");
+                jsonObject.remove("type");
+                if ("delete".equals(type)) {
+                    // HBase 中对应删除
+                    HBaseUtil.deleteRow(connection, Constant.HBASE_NAMESPACE, tableProcessDim.getSinkTable(), tableProcessDim.getSinkRowKey());
+                } else {
+                    // HBase 中 put 数据
+                    HBaseUtil.putRow(connection, Constant.HBASE_NAMESPACE, tableProcessDim.getSinkTable(), tableProcessDim.getSinkRowKey(), tableProcessDim.getSinkFamily(), jsonObject);
+                }
+            }
+
+            @Override
+            public void close() throws Exception {
+                HBaseUtil.closeHBaseConnection(connection);
+            }
+        });
 
         env.execute();
     }
