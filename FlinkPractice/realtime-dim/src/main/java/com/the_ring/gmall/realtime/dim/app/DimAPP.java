@@ -4,6 +4,7 @@ package com.the_ring.gmall.realtime.dim.app;
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONObject;
 import com.alibaba.fastjson2.JSONReader;
+import com.the_ring.gmall.realtime.common.base.BaseApp;
 import com.the_ring.gmall.realtime.common.bean.TableProcessDim;
 import com.the_ring.gmall.realtime.common.constant.Constant;
 import com.the_ring.gmall.realtime.common.util.FinkSourceUtil;
@@ -15,14 +16,9 @@ import org.apache.flink.api.common.functions.MapFunction;
 import org.apache.flink.api.common.state.MapStateDescriptor;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.cdc.connectors.mysql.source.MySqlSource;
-import org.apache.flink.configuration.Configuration;
-import org.apache.flink.configuration.ExternalizedCheckpointRetention;
-import org.apache.flink.connector.kafka.source.KafkaSource;
-import org.apache.flink.core.execution.CheckpointingMode;
 import org.apache.flink.streaming.api.datastream.BroadcastStream;
 import org.apache.flink.streaming.api.datastream.DataStreamSource;
 import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
-import org.apache.flink.streaming.api.environment.CheckpointConfig;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.ProcessFunction;
 import org.apache.flink.util.Collector;
@@ -32,39 +28,13 @@ import org.apache.flink.util.Collector;
  * @Date 2025/10/9
  * @Author the_ring
  */
-public class DimAPP {
+public class DimAPP extends BaseApp {
     public static void main(String[] args) throws Exception {
-        // 1. 基本环境配置
-        // 1.1 指定流处理环境
-        StreamExecutionEnvironment env = StreamExecutionEnvironment.createLocalEnvironmentWithWebUI(new Configuration());
-        // 1.2 设置并行度
-        env.setParallelism(4);
+        new DimAPP().start(1001, 1, "dim_app", Constant.TOPIC_DB);
+    }
 
-        // 2. 检查点相关配置
-        // 2.1 开启检查点
-        env.enableCheckpointing(5000L, CheckpointingMode.EXACTLY_ONCE);
-        CheckpointConfig checkpointConfig = env.getCheckpointConfig();
-        // 2.2 设置检查点超时时间
-        checkpointConfig.setCheckpointTimeout(60000L);
-        // 2.3 设置 job 取消后检查点是否保留
-        checkpointConfig.setExternalizedCheckpointRetention(ExternalizedCheckpointRetention.DELETE_ON_CANCELLATION);
-        // 2.4 设置两个检查点之间的时间间隔
-        checkpointConfig.setMinPauseBetweenCheckpoints(2000L);
-        // 2.5 设置重启策略
-        //        env.setRestartStrategy(RestartStrategies.failureReteRestart(3, Time.days(30), Time.seconds(3));
-        // 2.6 设置状态后端以及检查点存储路径
-        //        env.setStateBackend(new HashMapStateBackend());
-        //        env.getCheckpointConfig().setCheckpointStorage("hdfs://hadoop00:8020/ck");
-        // 2.7 设置操作 hadoop 的用户
-        System.setProperty("HADOOP_USER_NAME", "the-ring");
-
-        // 3. 从 Kafka 的 topic-db 主题中读取业务数据
-        // 3.1 声明消费的主题以及消费者组
-        // 3.2 创建消消费者对象
-        KafkaSource<String> kafkaSource = FinkSourceUtil.getKafkaSource(Constant.TOPIC_DB, "dim_app_group");
-        // 3.3 消费数据，封装为流
-        DataStreamSource<String> kafkaStrDS = env.fromSource(kafkaSource, WatermarkStrategy.noWatermarks(), "Kafka Source");
-
+    @Override
+    public void handle(StreamExecutionEnvironment env, DataStreamSource<String> kafkaStrDS) {
         // 4. 对业务流中的数据类型进行转换 jsonStr->jsonObj
         SingleOutputStreamOperator<JSONObject> kafkaObjDS = kafkaStrDS.process(
                 new ProcessFunction<String, JSONObject>() {
@@ -83,7 +53,8 @@ public class DimAPP {
                     }
                 }
         );
-        //        kafkaObjDS.print();
+
+//        kafkaObjDS.print();
 
         // 5. 使用 Flink CDC 读取配置表中的配置信息
         // 5.1 创建 MysqlSource 对象
@@ -126,9 +97,6 @@ public class DimAPP {
                 .process(new ConfigBroadcastProcessFunction(mapStateDescriptor));
         dimDS.print();
 
-        // 11. 将维度数据同步到 HBase 表中
         dimDS.addSink(new HBaseSink());
-
-        env.execute();
     }
 }
