@@ -35,7 +35,7 @@ public class HBaseSink extends RichSinkFunction<Tuple2<JSONObject, TableProcessD
             HBaseUtil.deleteRow(connection, Constant.HBASE_NAMESPACE, tableProcessDim.getSinkTable(), tableProcessDim.getSinkRowKey());
         } else {
             // HBase 中 put 数据
-            HBaseUtil.putRow(connection, Constant.HBASE_NAMESPACE, tableProcessDim.getSinkTable(), tableProcessDim.getSinkRowKey(), tableProcessDim.getSinkFamily(), jsonObject);
+            HBaseUtil.putRow(connection, Constant.HBASE_NAMESPACE, tableProcessDim.getSinkTable(), jsonObject.getString(tableProcessDim.getSinkRowKey()), tableProcessDim.getSinkFamily(), jsonObject);
         }
     }
 

@@ -4,6 +4,7 @@ import com.alibaba.fastjson2.JSONObject;
 import com.alibaba.fastjson2.JSONReader;
 import com.the_ring.gmall.realtime.common.bean.TableProcessDim;
 import com.the_ring.gmall.realtime.common.constant.Constant;
+import com.the_ring.gmall.realtime.common.util.HBaseUtil;
 import org.apache.flink.api.common.functions.OpenContext;
 import org.apache.flink.api.common.state.BroadcastState;
 import org.apache.flink.api.common.state.MapStateDescriptor;
@@ -11,6 +12,7 @@ import org.apache.flink.api.common.state.ReadOnlyBroadcastState;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.streaming.api.functions.co.BroadcastProcessFunction;
 import org.apache.flink.util.Collector;
+import org.apache.hadoop.hbase.client.Connection;
 
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -41,14 +43,18 @@ public class ConfigBroadcastProcessFunction extends BroadcastProcessFunction<JSO
         PreparedStatement statement = con.prepareStatement(sql);
         ResultSet resultSet = statement.executeQuery();
         ResultSetMetaData metaData = resultSet.getMetaData();
+
+        Connection connection = HBaseUtil.getHBaseConnection();
         while (resultSet.next()) {
             JSONObject jsonObject = new JSONObject();
-            for (int i = 1; i < metaData.getColumnCount(); i++) {
-                String columnName = metaData.getCatalogName(i);
+            for (int i = 1; i <= metaData.getColumnCount(); i++) {
+                String columnName = metaData.getColumnName(i);
                 Object columnValue = resultSet.getObject(i);
                 jsonObject.put(columnName, columnValue);
             }
             TableProcessDim tableProcessDim = jsonObject.toJavaObject(TableProcessDim.class, JSONReader.Feature.SupportSmartMatch);
+            // 并在 HBase 中创建表
+            HBaseUtil.createHBaseTable(connection, Constant.HBASE_NAMESPACE, tableProcessDim.getSinkTable(), tableProcessDim.getSinkFamily());
             configMap.put(tableProcessDim.getSourceTable(), tableProcessDim);
         }
 

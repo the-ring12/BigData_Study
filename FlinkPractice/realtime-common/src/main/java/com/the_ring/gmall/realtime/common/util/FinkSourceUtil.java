@@ -23,7 +23,7 @@ public class FinkSourceUtil {
                 .setBootstrapServers(Constant.KAFKA_BROKERS)
                 .setTopics(topic)
                 .setGroupId(groupId)
-                .setStartingOffsets(OffsetsInitializer.earliest())
+                .setStartingOffsets(OffsetsInitializer.latest())
                 .setValueOnlyDeserializer(new SimpleStringSchema())
                 .build();
     }
@@ -41,7 +41,7 @@ public class FinkSourceUtil {
                 .username(Constant.MYSQL_USER_NAME)
                 .password(Constant.MYSQL_PASSWORD)
                 .deserializer(new JsonDebeziumDeserializationSchema())
-                .startupOptions(StartupOptions.earliest())
+                .startupOptions(StartupOptions.initial())
                 .jdbcProperties(props)
                 .build();
     }
