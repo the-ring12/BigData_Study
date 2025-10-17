@@ -14,7 +14,7 @@ import org.apache.hadoop.hbase.client.Connection;
  * @Date 2025/10/16
  * @Author the_ring
  */
-public class HBaseSink extends RichSinkFunction<Tuple2<JSONObject, TableProcessDim>> {
+public class HBaseSinkFunction extends RichSinkFunction<Tuple2<JSONObject, TableProcessDim>> {
 
     private Connection connection;
 

@@ -10,7 +10,7 @@ import com.the_ring.gmall.realtime.common.constant.Constant;
 import com.the_ring.gmall.realtime.common.util.FinkSourceUtil;
 import com.the_ring.gmall.realtime.dim.function.ConfigBroadcastProcessFunction;
 import com.the_ring.gmall.realtime.dim.function.ConfigHBaseMapFunction;
-import com.the_ring.gmall.realtime.dim.function.HBaseSink;
+import com.the_ring.gmall.realtime.dim.function.HBaseSinkFunction;
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.api.common.functions.MapFunction;
 import org.apache.flink.api.common.state.MapStateDescriptor;
@@ -97,6 +97,6 @@ public class DimAPP extends BaseApp {
                 .process(new ConfigBroadcastProcessFunction(mapStateDescriptor));
         dimDS.print();
 
-        dimDS.addSink(new HBaseSink());
+        dimDS.addSink(new HBaseSinkFunction());
     }
 }
