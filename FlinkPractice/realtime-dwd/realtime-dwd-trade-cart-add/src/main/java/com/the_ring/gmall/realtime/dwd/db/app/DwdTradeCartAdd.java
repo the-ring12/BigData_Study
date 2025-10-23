@@ -8,7 +8,7 @@ import org.apache.flink.table.api.Table;
 import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
 
 /**
- * @Description TODO
+ * @Description 加购数据
  * @Date 2025/10/23
  * @Author the_ring
  */
