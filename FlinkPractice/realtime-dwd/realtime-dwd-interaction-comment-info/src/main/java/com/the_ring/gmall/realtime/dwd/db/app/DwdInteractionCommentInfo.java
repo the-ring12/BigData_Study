@@ -88,10 +88,11 @@ public class DwdInteractionCommentInfo extends BaseSQLApp {
                 "  appraise string,\n" +
                 "  appraise_name string,\n" +
                 "  comment_txt string,\n" +
-                "  ts bigint\n" +
+                "  ts bigint,\n" +
+                "  PRIMARY KEY (id) NOT ENFORCED\n" +
                 ")" + SQLUtil.getKafkaDDLSink(Constant.TOPIC_DWD_INTERACTION_COMMENT_INFO));
 
-        result.executeInsert("dwd_interaction_comment_info").print();  // 需要执行 print() 才能触发
+        result.executeInsert("dwd_interaction_comment_info");
 
     }
 }

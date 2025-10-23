@@ -24,10 +24,11 @@ public class SQLUtil {
 
     public static String getKafkaDDLSink(String topic) {
         return "WITH (\n" +
-                "  'connector' = 'kafka',\n" +
+                "  'connector' = 'upsert-kafka',\n" +
                 "  'topic' = '" + topic + "',\n" +
                 "  'properties.bootstrap.servers' = '" + Constant.KAFKA_BROKERS + "',\n" +
-                "  'format' = 'json'\n" +
+                "  'key.format' = 'json',\n" +
+                "  'value.format' = 'json'\n" +
                 ")";
     }
 
