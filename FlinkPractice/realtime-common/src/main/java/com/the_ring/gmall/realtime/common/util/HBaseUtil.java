@@ -5,6 +5,8 @@ import com.alibaba.fastjson2.JSONObject;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang.StringUtils;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.hbase.Cell;
+import org.apache.hadoop.hbase.CellUtil;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.*;
 import org.apache.hadoop.hbase.util.Bytes;
@@ -106,6 +108,29 @@ public class HBaseUtil {
             Delete delete = new Delete(Bytes.toBytes(rowKey));
             table.delete(delete);
             log.info("表空间下 " + nameSpace + " 的表 " + tableName + " 删除一条数据！");
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public static void main(String[] args) throws IOException {
+        Connection connection = HBaseUtil.getHBaseConnection();
+        TableName tableNameObj = TableName.valueOf("gmall", "dim_base_dic");
+        try (Table table = connection.getTable(tableNameObj);
+             ResultScanner scanner = table.getScanner(new Scan());) {
+            for (Result resultRow : scanner) {
+                String rowKey = Bytes.toString(resultRow.getRow());
+                System.out.print(rowKey + ": ");
+                for (Cell cell : resultRow.listCells()) {
+                    String family = Bytes.toString(CellUtil.cloneFamily(cell));
+                    String column = Bytes.toString(CellUtil.cloneQualifier(cell));
+                    String value = Bytes.toString(CellUtil.cloneValue(cell));
+                    long timestamp = cell.getTimestamp();
+                    System.out.print(family + "=>" + column + "=" + value + ", ");
+                }
+                System.out.println();
+            }
+
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
