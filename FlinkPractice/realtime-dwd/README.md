@@ -17,4 +17,8 @@
 
 ## realtime-dwd-interaction-comment-info
 
-提取生成的评论表的数据，并将字典表中相关维度退化到评论表中，写出到 Kafka 对应的主题。
+对于评论表（comment_info）中的数据，评论类别是一个 id，关联配置表（HBase 中的 dim_base_dic）确定评论的类别（好评、差评……）
+
+## realtime-dwd-trade-cart-add
+
+购物车数据表（cart_info)中过滤加购数据，insert 和 update(数量必须增加)
