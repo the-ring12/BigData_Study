@@ -1,5 +1,7 @@
 package com.the_ring.gmall.realtime.common.base;
 
+import com.the_ring.gmall.realtime.common.constant.Constant;
+import com.the_ring.gmall.realtime.common.util.SQLUtil;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.ExternalizedCheckpointRetention;
 import org.apache.flink.core.execution.CheckpointingMode;
@@ -50,4 +52,29 @@ public abstract class BaseSQLApp {
     }
 
     public abstract void handle(StreamExecutionEnvironment env, StreamTableEnvironment tableEnv);
+
+    // 读取 Maxwell 同步的数据库中的业务数据
+    public void readOdsDb(StreamTableEnvironment tEnv, String groupId) {
+        tEnv.executeSql("CREATE TABLE topic_db (\n" +
+                "  `database` string,\n" +
+                "  `table` string,\n" +
+                "  `type` string,\n" +
+                "  `data` map<string, string>,\n" +
+                "  `old` map<string, string>,\n" +
+                "  `ts` bigint,\n" +
+                "  `pt` as proctime()\n" +
+                ") " + SQLUtil.getKafkaDDLSource(Constant.TOPIC_DB, groupId));
+
+        //        tEnv.sqlQuery("SELECT * FROM topic_db").execute().print();
+    }
+
+    // 从 HBase 读取 dim_base_dic 数据
+    public void readHBaseBaseDic(StreamTableEnvironment tEnv) {
+        tEnv.executeSql("CREATE TABLE base_dic (\n" +
+                " dic_code string,\n" +
+                " info ROW<dic_name string>,\n" +
+                " PRIMARY KEY (dic_code) NOT ENFORCED\n" +
+                ")" + SQLUtil.getHbaseDDL(Constant.HBASE_NAMESPACE, "dim_base_dic"));
+        //        tEnv.sqlQuery("SELECT * FROM base_dic").execute().print();
+    }
 }

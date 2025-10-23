@@ -32,7 +32,17 @@ public class SQLUtil {
                 ")";
     }
 
-
+    public static String getHbaseDDL(String namespace, String table) {
+        return "WITH (\n" +
+                " 'connector' = 'hbase-2.6',\n" +
+                " 'table-name' = '" + namespace + ":" + table + "',\n" +
+                " 'zookeeper.quorum' = 'hadoop00:2181,hadoop01:2181',\n" +
+                " 'lookup.cache' = 'PARTIAL',\n" +
+                " 'lookup.async' = 'true',\n" +
+                " 'lookup.partial-cache.max-rows' = '20',\n" +
+                " 'lookup.partial-cache.expire-after-access' = '2 hour'\n" +
+                " )";
+    }
 
 
 }

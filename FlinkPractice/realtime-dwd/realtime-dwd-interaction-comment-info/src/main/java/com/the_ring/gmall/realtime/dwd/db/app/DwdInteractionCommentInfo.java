@@ -22,17 +22,7 @@ public class DwdInteractionCommentInfo extends BaseSQLApp {
     public void handle(StreamExecutionEnvironment env, StreamTableEnvironment tEnv) {
 
         // 1. 建立动态表，从 topic_db 读取数据
-        tEnv.executeSql("CREATE TABLE topic_db (\n" +
-                "  `database` string,\n" +
-                "  `table` string,\n" +
-                "  `type` string,\n" +
-                "  `data` map<string, string>,\n" +
-                "  `old` map<string, string>,\n" +
-                "  `ts` bigint,\n" +
-                "  `pt` as proctime()\n" +
-                ") " + SQLUtil.getKafkaDDLSource(Constant.TOPIC_DB, Constant.TOPIC_DWD_INTERACTION_COMMENT_INFO));
-
-        //        tEnv.sqlQuery("SELECT * FROM topic_db").execute().print();
+        readOdsDb(tEnv, Constant.TOPIC_DWD_INTERACTION_COMMENT_INFO);
 
         // 2. 过滤评论表数据
         Table commentInfo = tEnv.sqlQuery("SELECT \n" +
@@ -51,20 +41,7 @@ public class DwdInteractionCommentInfo extends BaseSQLApp {
         tEnv.createTemporaryView("comment_info", commentInfo);
 
         // 3. 通过 DDL 读取 HBase 中的 base_dic
-        tEnv.executeSql("CREATE TABLE base_dic (\n" +
-                " dic_code string,\n" +
-                " info ROW<dic_name string>,\n" +
-                " PRIMARY KEY (dic_code) NOT ENFORCED\n" +
-                ") WITH (\n" +
-                " 'connector' = 'hbase-2.6',\n" +
-                " 'table-name' = 'gmall:dim_base_dic',\n" +
-                " 'zookeeper.quorum' = 'hadoop00:2181,hadoop01:2181',\n" +
-                " 'lookup.cache' = 'PARTIAL',\n" +
-                " 'lookup.async' = 'true',\n" +
-                " 'lookup.partial-cache.max-rows' = '20',\n" +
-                " 'lookup.partial-cache.expire-after-access' = '2 hour'\n" +
-                " )");
-//        tEnv.sqlQuery("SELECT * FROM base_dic").execute().print();
+        readHBaseBaseDic(tEnv);
 
         // 4. 事实表和维度表进行 lookup join
         Table result = tEnv.sqlQuery("SELECT\n" +
