@@ -22,3 +22,9 @@
 ## realtime-dwd-trade-cart-add
 
 购物车数据表（cart_info)中过滤加购数据，insert 和 update(数量必须增加)
+
+## realtime-dwd-trade-order-detail
+
+交易域下单事务事实表
+
+关联订单明细表、订单表、订单明细活动关联表、订单明细优惠券关联表四张事实业务表的insert操作，形成下单明细表，写入 Kafka 对应主题。
