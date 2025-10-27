@@ -40,3 +40,9 @@
 交易支付成功事务事实
 
 从 Kafka topic_db主题筛选支付成功数据、从dwd_trade_order_detail主题中读取订单事实数据、LookUp字典表，关联三张表形成支付成功宽表，写入 Kafka 支付成功主题。
+
+## realtime-dwd-trade-order-refund
+
+退单事务事实表
+
+从 Kafka 读取业务数据，筛选退单表数据，筛选满足条件的订单表数据，建立 MySQL-Lookup 字典表，关联三张表获得退单明细宽表。
