@@ -34,3 +34,9 @@
 取消订单事务事实
 
 从 Kafka 读取topic_db主题数据，关联筛选订单明细表、取消订单数据、订单明细活动关联表、订单明细优惠券关联表四张事实业务表形成取消订单明细表，写入 Kafka 对应主题。
+
+## realtime-dwd-trade-order-pay-suc-detail
+
+交易支付成功事务事实
+
+从 Kafka topic_db主题筛选支付成功数据、从dwd_trade_order_detail主题中读取订单事实数据、LookUp字典表，关联三张表形成支付成功宽表，写入 Kafka 支付成功主题。
