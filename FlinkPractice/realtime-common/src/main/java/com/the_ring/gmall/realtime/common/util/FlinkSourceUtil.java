@@ -15,7 +15,7 @@ import java.util.Properties;
  * @Date 2025/10/16
  * @Author the_ring
  */
-public class FinkSourceUtil {
+public class FlinkSourceUtil {
 
 
     public static KafkaSource<String> getKafkaSource(String topic, String groupId) {

@@ -16,7 +16,7 @@ import java.util.List;
  */
 public class JDBCUtil {
 
-    public static Connection getMysqlConnection(String database) throws Exception {
+    public static Connection getMysqlConnection() throws Exception {
         Class.forName(Constant.MYSQL_DRIVER);
         return DriverManager.getConnection(Constant.MYSQL_URL, Constant.MYSQL_USER_NAME, Constant.MYSQL_PASSWORD);
     }

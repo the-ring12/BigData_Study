@@ -1,6 +1,6 @@
 package com.the_ring.gmall.realtime.common.base;
 
-import com.the_ring.gmall.realtime.common.util.FinkSourceUtil;
+import com.the_ring.gmall.realtime.common.util.FlinkSourceUtil;
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.ExternalizedCheckpointRetention;
@@ -57,7 +57,7 @@ public abstract class BaseApp {
         // 3. 从 Kafka 的 topic-db 主题中读取业务数据
         // 3.1 声明消费的主题以及消费者组
         // 3.2 创建消消费者对象
-        KafkaSource<String> kafkaSource = FinkSourceUtil.getKafkaSource(topic, ckAndGroupId);
+        KafkaSource<String> kafkaSource = FlinkSourceUtil.getKafkaSource(topic, ckAndGroupId);
         // 3.3 消费数据，封装为流
         DataStreamSource<String> kafkaStrDS = env.fromSource(kafkaSource, WatermarkStrategy.noWatermarks(), "Kafka Source");
 

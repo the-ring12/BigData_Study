@@ -7,7 +7,7 @@ import com.alibaba.fastjson2.JSONReader;
 import com.the_ring.gmall.realtime.common.base.BaseApp;
 import com.the_ring.gmall.realtime.common.bean.TableProcessDim;
 import com.the_ring.gmall.realtime.common.constant.Constant;
-import com.the_ring.gmall.realtime.common.util.FinkSourceUtil;
+import com.the_ring.gmall.realtime.common.util.FlinkSourceUtil;
 import com.the_ring.gmall.realtime.dim.function.ConfigBroadcastProcessFunction;
 import com.the_ring.gmall.realtime.dim.function.ConfigHBaseMapFunction;
 import com.the_ring.gmall.realtime.dim.function.HBaseSinkFunction;
@@ -58,7 +58,7 @@ public class DimAPP extends BaseApp {
 
         // 5. 使用 Flink CDC 读取配置表中的配置信息
         // 5.1 创建 MysqlSource 对象
-        MySqlSource<String> mySqlSource = FinkSourceUtil.getMysqlSource("gmall2025_config", "table_process_dim");
+        MySqlSource<String> mySqlSource = FlinkSourceUtil.getMysqlSource("gmall2025_config", "table_process_dim");
 
         // 5.2 读取数据，封装为流
         DataStreamSource<String> mySQLStrDS = env
