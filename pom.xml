@@ -13,6 +13,7 @@
         <module>spark</module>
         <module>Flink</module>
         <module>FlinkPractice</module>
+        <module>JavaStudy</module>
     </modules>
 
 
