@@ -3,6 +3,11 @@ package com.the_ring.gmall.realtime.common.util;
 import com.alibaba.fastjson2.JSONObject;
 import com.the_ring.gmall.realtime.common.bean.TableProcessDwd;
 import com.the_ring.gmall.realtime.common.constant.Constant;
+import org.apache.doris.flink.cfg.DorisExecutionOptions;
+import org.apache.doris.flink.cfg.DorisOptions;
+import org.apache.doris.flink.cfg.DorisReadOptions;
+import org.apache.doris.flink.sink.DorisSink;
+import org.apache.doris.flink.sink.writer.serializer.SimpleStringSerializer;
 import org.apache.flink.api.common.serialization.SimpleStringSchema;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.connector.base.DeliveryGuarantee;
@@ -12,6 +17,7 @@ import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
 
 import javax.annotation.Nullable;
+import java.util.Properties;
 
 /**
  * @Description FlinkSink 工具类
@@ -58,6 +64,45 @@ public class FlinkSinkUtil {
 //                // 事务超时时间比检查点超时时间 大
 //                .setProperty(ProducerConfig.TRANSACTION_TIMEOUT_CONFIG, 15 * 60 * 100 + "")
                 //需要在消费端设置隔离级别为读已提交
+                .build();
+    }
+
+    /**
+     * 获取 DorisSink
+     * @param labelPrefix label 前缀
+     * @param tableIdentify 数据库.表
+     * @return DorisSink
+     */
+    public static DorisSink<String> getDorisSink(String labelPrefix, String tableIdentify) {
+
+        DorisOptions dorisOptions = DorisOptions.builder()
+                .setFenodes(Constant.DORIS_FE_NODES)
+                .setTableIdentifier(tableIdentify)
+                .setUsername("root")
+                .setPassword("")
+                .build();
+
+        Properties properties = new Properties();
+        properties.setProperty("read_json_by_line", "true");
+        properties.setProperty("format", "json");
+
+        DorisExecutionOptions dorisExecutionOptions = DorisExecutionOptions.builder()
+                .setLabelPrefix(labelPrefix)    // stream-load 导入数据时 label 的前缀
+                .disable2PC()                   // 测试阶段禁用
+                .setBufferCount(3)
+                .setBufferSize(1024 * 1024)
+                .setCheckInterval(3000)
+                .setMaxRetries(3)
+                .setDeletable(false)
+                .setStreamLoadProp(properties)
+                .build();
+
+
+        return DorisSink.<String>builder()
+                .setDorisReadOptions(DorisReadOptions.builder().build())
+                .setDorisOptions(dorisOptions)
+                .setDorisExecutionOptions(dorisExecutionOptions)
+                .setSerializer(new SimpleStringSerializer())
                 .build();
     }
 }
